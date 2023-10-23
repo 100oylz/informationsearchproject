@@ -20,24 +20,27 @@ class FunkSVD():
         self.lambda_P = lambda_P if lambda_P != None else lambda_all
         self.lambda_Q = lambda_Q if lambda_Q != None else lambda_all
 
-    def fit(self, trainset):
+    def fit(self, trainset, num_epochs=100):
         self.trainset = trainset
-        self.sgd(trainset)
+        self.sgd(trainset, num_epochs)
         return self
 
     def sgd(self, trainset, num_epochs):
-        self.UserBias = np.zeros((self.shape[0], 1))
-        self.ItemBias = np.zeros((1, self.shape[1]))
+        self.UserBias = np.zeros((self.shape[0]))
+        self.ItemBias = np.zeros((self.shape[1]))
         self.MeanBias = 0
         self.P = np.random.normal(self.init_mean, self.init_std, (self.shape[0], self.hidden_classes))
         self.Q = np.random.normal(self.init_mean, self.init_std, (self.hidden_classes, self.shape[1]))
         self.train_loss_list = []
         for epoch in range(1, num_epochs + 1):
             total_err = 0
-            for u, i, r in trainset.all_ratings():
-                dot = np.dot(self.Q[i, :], self.P[:, u])
+            for iteration, (u, i, r) in enumerate(trainset.all_ratings(), 1):
+                dot = np.dot(self.P[u, :], self.Q[:, i])
                 err = r - (self.ItemBias[i] + self.UserBias[u] + dot + self.MeanBias)
 
+                # 每隔100个迭代周期打印一次err
+                if iteration % 100 == 0:
+                    print("Iteration:", iteration, "Error:", np.abs(err))
                 self.UserBias[u] += self.lr_userbias * (err - self.lambda_userbias * self.UserBias[u])
                 self.ItemBias[i] += self.lr_itembias * (err - self.lambda_itembias * self.ItemBias[i])
 
@@ -46,8 +49,10 @@ class FunkSVD():
                     q_fi = self.Q[f, i]
                     self.P[u, f] += self.lr_P * (err * q_fi - self.lambda_P * p_uf)
                     self.Q[f, i] += self.lr_Q * (err * p_uf - self.lambda_Q * q_fi)
-                total_err += err
-            self.train_loss_list.append(float(total_err) / trainset.itemnum)
+                total_err += np.sqrt(err ** 2)
+            epoch_err = float(total_err) / trainset.itemnum
+            print(f'Epoch {epoch}/{num_epochs}: loss->{epoch_err}')
+            self.train_loss_list.append(epoch_err)
 
     def estimate(self, u, i):
         known_user = self.trainset.knows_user(u)
