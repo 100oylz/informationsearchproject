@@ -6,7 +6,7 @@ data = dataset()
 print(data.rawmatrixshape)
 print(data.itemnum)
 svd = FunkSVD(data.rawmatrixshape, 64, lr_all=1e-3, lambda_all=5e-4)
-ratings = svd.fit(data, num_epochs=10, journal_path='journal/FunkSVD_model1.txt')
+ratings = svd.fit(data, num_epochs=200, journal_path='journal/FunkSVD_model1.txt')
 print(ratings.train_loss_list)
 
 with open("funksvd.pkl", 'wb') as f:

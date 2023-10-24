@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
-from constant import MOVIESDPATH, RATINGSPATH
+from constant import *
 
 
 def loadcsv(filename):
@@ -14,5 +14,5 @@ def loadcsv(filename):
 if __name__ == '__main__':
     # movies:movieId,title,genres
     # ratings:userId,movieId,rating,timestamp
-    movies, ratings = loadcsv(MOVIESDPATH), loadcsv(RATINGSPATH)
+    movies, ratings = loadcsv(MOVIESPATH), loadcsv(RATINGSPATH)
 
