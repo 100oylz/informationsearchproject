@@ -1,6 +1,7 @@
 import numpy as np
 cimport numpy as np
 from cython cimport list
+import tqdm
 
 class FunkSVD:
 
@@ -26,14 +27,14 @@ class FunkSVD:
         self.lambda_Q = lambda_Q if lambda_Q != None else lambda_all
         self.MeanBias = 0.0
         self.train_loss_list=list()
-        
 
-    def fit(self, trainset, num_epochs=100):
+
+    def fit(self, trainset, num_epochs=100, preload=False, journal_path=None):
         self.trainset = trainset
-        self.sgd(trainset, num_epochs)
+        self.sgd(trainset, num_epochs,preload,journal_path)
         return self
 
-    def sgd(self, trainset, num_epochs):
+    def sgd(self, trainset, num_epochs, preload=False, journal_path=None):
         cdef np.ndarray[np.double_t,ndim=2] P,Q
         cdef np.ndarray[np.double_t,ndim=1] UserBias,ItemBias
 
@@ -42,15 +43,23 @@ class FunkSVD:
         P = np.random.normal(self.init_mean, self.init_std, (self.shape[0], self.hidden_classes))
         Q = np.random.normal(self.init_mean, self.init_std, (self.hidden_classes, self.shape[1]))
 
+        # 打开日志文件
+        if journal_path:
+            if preload:
+                mode = "a"  # 追加模式
+            else:
+                mode = "w"  # 覆写模式
+            journal_file = open(journal_path, mode)
+        else:
+            journal_file = None
+
         for epoch in range(1, num_epochs + 1):
             total_err = 0
-            for iteration, (u, i, r) in enumerate(trainset.all_ratings(), 1):
+            epoch_bar = tqdm.tqdm(trainset.all_train_set(), total=trainset.train_set_item)
+            for (u, i, r) in epoch_bar:
                 dot = np.dot(P[u, :], Q[:, i])
                 err = r - (ItemBias[i] + UserBias[u] + dot + self.MeanBias)
 
-                # 每隔1000个迭代周期打印一次err
-                if iteration % 1000 == 0:
-                    print("Iteration:", iteration, "Error:", np.abs(err))
                 UserBias[u] += self.lr_userbias * (err - self.lambda_userbias * UserBias[u])
                 ItemBias[i] += self.lr_itembias * (err - self.lambda_itembias * ItemBias[i])
 
@@ -62,11 +71,20 @@ class FunkSVD:
                 total_err += np.sqrt(err ** 2)
             epoch_err = float(total_err) / trainset.itemnum
             print(f'Epoch {epoch}/{num_epochs}: loss->{epoch_err}')
+
+            # 记录打印内容到日志文件
+            if journal_file:
+                journal_file.write(f'Epoch {epoch}/{num_epochs}: loss->{epoch_err}\n')
+            
             self.P=P
             self.Q=Q
             self.UserBias=UserBias
             self.ItemBias=ItemBias
             self.train_loss_list.append(epoch_err)
+
+        # 关闭日志文件
+        if journal_file:
+            journal_file.close()
             
 
     def estimate(self, u, i):
